@@ -1,8 +1,7 @@
 import sys
 import random
 from PyQt6.QtWidgets import (QWidget, QPushButton, QLabel, QGridLayout,
-                             QVBoxLayout,
-                             QApplication, QMessageBox)
+                             QVBoxLayout, QApplication, QMessageBox)
 from PyQt6.QtCore import QTimer
 from PyQt6.QtGui import QPalette, QColor
 
@@ -42,8 +41,7 @@ class MinesweeperLogic(QWidget):
             self.setFixedSize(800, 800)
 
         self.buttons_container = QWidget(self)
-        self.buttons_container.setGeometry(50, 50, field_size[0],
-                                           field_size[1])
+        self.buttons_container.setGeometry(50, 50, field_size[0], field_size[1])
         self.createGrid(grid_size)
 
         self.digit_panel = QWidget(self)
@@ -51,13 +49,14 @@ class MinesweeperLogic(QWidget):
         self.digit_buttons = {}
         for d in range(10):
             btn = QPushButton(str(d), self.digit_panel)
-            btn.clicked.connect(
-                lambda checked, digit=d: self.selectDigit(digit))
+            btn.setStyleSheet("color: black;")
+            btn.clicked.connect(lambda checked, digit=d: self.selectDigit(digit))
             digit_layout.addWidget(btn)
             self.digit_buttons[d] = btn
+            btn.setEnabled(False)
         self.digit_panel.setLayout(digit_layout)
-        self.digit_panel.setGeometry(self.width() - 80, 50, 70,
-                                     self.height() - 100)
+        self.digit_panel.setGeometry(self.width() - 80, 50,
+                                     70, self.height() - 100)
 
         self.timer_label.move(50, 10)
         self.exit_button.move(10, self.height() - 50)
@@ -83,7 +82,7 @@ class MinesweeperLogic(QWidget):
                 btn = QPushButton(self)
                 btn.setFixedSize(25, 25)
                 btn.setStyleSheet(
-                    "border: 1px solid gray; background-color: lightgray;")
+                    "border: 1px solid gray; background-color: lightgray; color: black;")
                 btn.clicked.connect(
                     lambda checked, x=i, y=j: self.cellClicked(x, y))
                 grid.addWidget(btn, i, j)
@@ -95,64 +94,82 @@ class MinesweeperLogic(QWidget):
 
     def cellClicked(self, x, y):
         if not self.active_challenge:
-            if self.matrix[x][y]["revealed"]:
+            if self.matrix[x][y]["revealed"] or self.matrix[x][y]["solved"]:
                 return
+
             self.matrix[x][y]["revealed"] = True
             self.buttons[(x, y)].setText("")
-            self.buttons[(x, y)].setStyleSheet("background-color: white;")
+            self.buttons[(x, y)].setStyleSheet(
+                "background-color: white; color: black;")
+
             neighbors = [(x - 1, y - 1), (x - 1, y), (x - 1, y + 1),
-                         (x, y - 1), (x, y + 1),
+                         (x, y - 1),             (x, y + 1),
                          (x + 1, y - 1), (x + 1, y), (x + 1, y + 1)]
-            valid_neighbors = []
-            for (nx, ny) in neighbors:
-                if 0 <= nx < len(self.matrix) and 0 <= ny < len(
-                        self.matrix[0]):
-                    valid_neighbors.append((nx, ny))
-            for (nx, ny) in valid_neighbors:
+            valid_neighbors = [
+                (nx, ny)
+                for nx, ny in neighbors
+                if 0 <= nx < len(self.matrix)
+                and 0 <= ny < len(self.matrix[0])
+            ]
+
+            for nx, ny in valid_neighbors:
                 rand_digit = random.randint(0, 9)
                 self.matrix[nx][ny]["challenge"] = rand_digit
-                self.buttons[(nx, ny)].setText(str(rand_digit))
-            # Сохраняем данные текущего раунда
+                btn = self.buttons[(nx, ny)]
+                btn.setText(str(rand_digit))
+
             self.current_challenge = {
-                (nx, ny): self.matrix[nx][ny]["challenge"] for (nx, ny) in
-                valid_neighbors}
+                (nx, ny): self.matrix[nx][ny]["challenge"]
+                for nx, ny in valid_neighbors
+            }
             self.current_base = (x, y)
             self.active_challenge = True
+
+            for btn in self.digit_buttons.values():
+                btn.setEnabled(False)
+
             self.challenge_timer.start(10000)
         else:
             if (x, y) in self.current_challenge and not self.matrix[x][y][
-                "solved"]:
+                "solved"
+            ]:
                 if self.selected_digit is None:
                     return
-                correct_digit = self.current_challenge[(x, y)]
-                if self.selected_digit == correct_digit:
+                correct = self.current_challenge[(x, y)]
+                btn = self.buttons[(x, y)]
+                if self.selected_digit == correct:
                     self.matrix[x][y]["solved"] = True
-                    self.buttons[(x, y)].setText(str(correct_digit))
-                    self.buttons[(x, y)].setStyleSheet(
-                        "background-color: lightgreen;")
+                    btn.setText(str(correct))
+                    btn.setStyleSheet("background-color: lightgreen; color: black;")
                     del self.current_challenge[(x, y)]
                     self.selected_digit = None
-                    for btn in self.digit_buttons.values():
-                        btn.setStyleSheet("")
+                    for b in self.digit_buttons.values():
+                        b.setStyleSheet("color: black;")
+
                     if not self.current_challenge:
                         self.active_challenge = False
                         self.current_base = None
+                        for b in self.digit_buttons.values():
+                            b.setEnabled(False)
                 else:
-                    self.buttons[(x, y)].setStyleSheet(
-                        "background-color: red;")
+                    btn.setStyleSheet("background-color: red; color: white;")
                     self.gameOver()
 
     def hideChallengeNumbers(self):
-        for (x, y) in self.current_challenge.keys():
+        for (x, y) in list(self.current_challenge.keys()):
             self.buttons[(x, y)].setText("")
+        for btn in self.digit_buttons.values():
+            btn.setEnabled(True)
 
     def selectDigit(self, digit):
+        if not self.active_challenge:
+            return
         self.selected_digit = digit
         for d, btn in self.digit_buttons.items():
             if d == digit:
-                btn.setStyleSheet("background-color: yellow;")
+                btn.setStyleSheet("background-color: yellow; color: black;")
             else:
-                btn.setStyleSheet("")
+                btn.setStyleSheet("color: black;")
 
     def timer_lab(self):
         self.counter += 1
